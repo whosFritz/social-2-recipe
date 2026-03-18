@@ -1,0 +1,36 @@
+services:
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:latest #
+    container_name: mealie
+    restart: always
+    ports:
+      - "9925:9000" #
+    deploy:
+      resources:
+        limits:
+          memory: 1000M #
+    volumes:
+      - mealie-data:/app/data/
+    env_file:
+      - .env
+    environment:
+      # Set Backend ENV Variables Here
+      ALLOW_SIGNUP: "false"
+      PUID: 1000
+      PGID: 1000
+      TZ: Europe/Berlin
+      BASE_URL: http://localhost:9925
+
+  yt-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yt-description-api
+    ports:
+      - "8089:8089"
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  mealie-data:
