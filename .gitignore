@@ -2,3 +2,5 @@
 n8n-yt-to-mealie.json
 .env
 cookies.txt
+.idea
+.DS_Store
