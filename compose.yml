@@ -31,6 +31,9 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
+      - COOKIES=/app/cookies.txt
+    volumes:
+      - ./cookies.txt:/app/cookies.txt
 
 volumes:
   mealie-data:

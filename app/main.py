@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import yt_dlp
 import json
 import re
+import os
 
 app = FastAPI(title="YT Description API")
 
@@ -33,16 +34,31 @@ def _parse_body(raw: bytes) -> str:
     return str(url)
 
 
+def _build_ydl_opts() -> dict:
+    """Build yt-dlp options from environment variables.
+
+    Supported env vars:
+    - COOKIES or COOKIEFILE: path to cookies.txt
+    """
+    opts = {
+        "quiet": True,
+        "skip_download": True,
+        "no_warnings": True,
+    }
+
+    cookiefile = os.getenv("COOKIES") or os.getenv("COOKIEFILE")
+    if cookiefile and os.path.isfile(cookiefile):
+        opts["cookiefile"] = cookiefile
+
+    return opts
+
+
 @app.post("/description", response_model=VideoResponse)
 async def get_description(request: Request):
     raw = await request.body()
     url = _parse_body(raw)
 
-    ydl_opts = {
-        "quiet": True,
-        "skip_download": True,
-        "no_warnings": True,
-    }
+    ydl_opts = _build_ydl_opts()
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
