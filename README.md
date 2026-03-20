@@ -1,7 +1,8 @@
 # testing0
 
-Recipe automation stack: Mealie + n8n + YouTube description API.
-The n8n workflow needs to be done by urself xD
+Recipe automation stack: Mealie + n8n + YouTube/Instagram/TikTok etc. description API.
+
+Automatically extracts recipes from YouTube, Instagram or TikTok videos etc., translates them to German via AI, and saves them directly into Mealie — including the thumbnail image.
 
 ## Services
 
@@ -9,7 +10,7 @@ The n8n workflow needs to be done by urself xD
 |---------|-----|
 | Mealie | http://localhost:9925 |
 | n8n | http://localhost:5678 |
-| YT API | http://localhost:8089 |
+| SocialMediaMetaDownlaoder API | http://localhost:8089 |
 
 ## Setup
 
@@ -30,7 +31,22 @@ Optionally add Instagram cookies (Netscape format):
 docker compose up -d
 ```
 
-## YT API
+## n8n Workflow
+
+Import `public-n8n-workflow-with-example-values.json` into n8n and configure the following placeholders:
+
+| Placeholder | Description |
+|---|---|
+| `<your-ai-api-url>` | OpenAI-compatible API endpoint (e.g. `https://api.openai.com/v1/chat/completions`) |
+| `<your-ai-api-key>` | API key for the AI service |
+| `<your-mealie-api-token>` | Mealie long-lived API token (Settings → API Tokens) |
+| `<your-mealie-domain>` | Your Mealie instance domain (e.g. `mealie.example.com`) |
+| `<your-webhook-id>` | Generated automatically by n8n after import |
+| `<your-instance-id>` | Generated automatically by n8n |
+
+The workflow exposes a webhook (POST). Send a JSON body with a `url` field pointing to a YouTube or Instagram video.
+
+## Example Request
 
 ```bash
 curl -X POST http://localhost:8089/description \

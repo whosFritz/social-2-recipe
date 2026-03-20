@@ -1,0 +1,378 @@
+{
+  "name": "Social Media to Mealie",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "xxxxxxxxx",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "481d2532-e591-48a2-8241-9dccadc18e67",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1296,
+        352
+      ],
+      "webhookId": "<your-webhook-id>"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8089/description",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json.body.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9d1ae433-7cb2-4c77-930f-381788cd1230",
+      "name": "Get YT Description",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1072,
+        352
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "<your-ai-api-url>",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer <your-ai-api-key>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'user', content: `Extract the recipe from this video description. Translate everything to German. Return plain text only, no emojis, no JSON, no markdown.\\n\\nFormat:\\nName: <name>\\n\\nIngredients:\\n- <quantity unit ingredient>\\n\\nInstructions:\\n1. <step>\\n\\nRules: only use what is in the text, convert US measurements to metric, round if needed. Also create a short fitting recipe name and add it to your answer.\\n\\nTitle: ${$('Get YT Description').item.json.title}\\n\\n${$('Get YT Description').item.json.description}` }] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "b5c6a06c-29e3-475a-8e2e-128e6d27f15d",
+      "name": "Parse Recipe with AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -848,
+        272
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.item.json.choices[0].message.content.trim();\nreturn [{ json: { recipeText: text } }];"
+      },
+      "id": "0ec7260e-3b5f-48de-8380-38c73fa2e985",
+      "name": "Extract Recipe JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -624,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:9925/api/recipes/create/html-or-json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer <your-mealie-api-token>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: $json.recipeText, url: $('Webhook').item.json.body.url, includeTags: true, includeCategories: true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "9382b4fc-4d2d-470f-a6b7-429165e7299a",
+      "name": "Create Recipe from HTML/JSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -400,
+        176
+      ],
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3e8e3776-2f7f-4dd2-9f22-9b6837e3ebd5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        48,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Get YT Description').item.json.thumbnail }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "63c9a839-0537-4848-947e-dfcaa8e9c42a",
+      "name": "Download Thumbnail",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -176,
+        -16
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'http://localhost:9925/api/recipes/' + $('Create Recipe from HTML/JSON').item.json.data + '/image' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer <your-mealie-api-token>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "extension",
+              "value": "jpg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8b00939d-54cf-4fc8-9cd2-6a2ff3bd30a6",
+      "name": "Upload Recipe Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        48,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        48,
+        400
+      ],
+      "id": "9836c1ac-f373-4871-b744-fe7cf4c82885",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\"code\" : $input.first().json.error.status}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        400
+      ],
+      "id": "b17583f0-2901-4147-964a-cb30381ad113",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst uri = \"https://<your-mealie-domain>/g/home/r/\" + $input.first().json.data\nreturn [{\n  \"code\": 200,\n  \"link\" : uri,\n  \"title\" : $('Get YT Description').first().json.title\n}]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        176
+      ],
+      "id": "cbdcf923-3321-481c-9db9-0419f7c3b511",
+      "name": "Code in JavaScript1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get YT Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get YT Description": {
+      "main": [
+        [
+          {
+            "node": "Parse Recipe with AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Recipe with AI": {
+      "main": [
+        [
+          {
+            "node": "Extract Recipe JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Recipe JSON": {
+      "main": [
+        [
+          {
+            "node": "Create Recipe from HTML/JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Recipe from HTML/JSON": {
+      "main": [
+        [
+          {
+            "node": "Download Thumbnail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Thumbnail": {
+      "main": [
+        [
+          {
+            "node": "Upload Recipe Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "94a26063-aeed-4a76-a937-6e8f349a07f1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "<your-instance-id>"
+  },
+  "id": "efrhrMnH11l7D02l",
+  "tags": []
+}
