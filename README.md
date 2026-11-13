@@ -1,4 +1,6 @@
-# testing0
+# Social Media to Mealie Recipe Automation Stack
+
+Heavily inspired by [GerardPolloRebozado/social-to-mealie](https://github.com/GerardPolloRebozado/social-to-mealie)
 
 Recipe automation stack: Mealie + n8n + YouTube/Instagram/TikTok etc. description API.
 
