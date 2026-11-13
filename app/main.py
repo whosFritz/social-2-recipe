@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
-import yt_dlp
-import json
-import re
-import os
-from contextlib import redirect_stdout, redirect_stderr
 import io
+import os
+import re
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timezone
+
+import yt_dlp
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 _gallery_dl_available = False
 try:
@@ -31,22 +32,13 @@ class VideoResponse(BaseModel):
     thumbnail: str | None
 
 
-def _parse_body(raw: bytes) -> str:
-    """Parse request body, fixing invalid JSON escape sequences in URLs."""
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        # Remove backslashes before characters that are not valid JSON escapes
-        # Valid: \" \\ \/ \b \f \n \r \t \uXXXX — everything else is invalid
-        cleaned = re.sub(r'\\([^"\\/bfnrtu])', r'\1', raw.decode("utf-8"))
-        try:
-            data = json.loads(cleaned)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=422, detail=f"Invalid JSON body: {e}")
-    url = data.get("url") if isinstance(data, dict) else None
-    if not url:
-        raise HTTPException(status_code=422, detail="Missing 'url' field")
-    return str(url)
+class DescriptionRequest(BaseModel):
+    url: str = Field(min_length=1)
+
+
+def _cookie_file() -> str | None:
+    path = os.getenv("COOKIES") or os.getenv("COOKIEFILE")
+    return path if path and os.path.isfile(path) else None
 
 
 def _build_ydl_opts() -> dict:
@@ -61,8 +53,7 @@ def _build_ydl_opts() -> dict:
         "no_warnings": True,
     }
 
-    cookiefile = os.getenv("COOKIES") or os.getenv("COOKIEFILE")
-    if cookiefile and os.path.isfile(cookiefile):
+    if cookiefile := _cookie_file():
         opts["cookiefile"] = cookiefile
 
     return opts
@@ -76,8 +67,7 @@ def _configure_gallery_dl() -> None:
     gdl_config.load()
 
     # Optional fixed cookie file (Netscape format).
-    cookiefile = os.getenv("COOKIES") or os.getenv("COOKIEFILE")
-    if cookiefile and os.path.isfile(cookiefile):
+    if cookiefile := _cookie_file():
         gdl_config.set(("extractor",), "cookies", cookiefile)
 
     # Optional browser cookie source (e.g. "chrome", "firefox"). Useful for
@@ -106,8 +96,6 @@ def _format_date(value) -> str | None:
     if value is None:
         return None
     if isinstance(value, (int, float)):
-        from datetime import datetime, timezone
-
         return datetime.fromtimestamp(value, tz=timezone.utc).strftime("%Y%m%d")
     text = str(value)
     # "2024-08-24 10:46:58" -> "20240824"
@@ -196,7 +184,17 @@ def _extract_uploader(data: dict) -> str:
     )
 
 
-def _extract_with_gallery_dl(url: str) -> dict:
+def _video_response(data: dict) -> VideoResponse:
+    return VideoResponse(
+        title=data.get("title", ""),
+        description=data.get("description", ""),
+        uploader=data.get("uploader", ""),
+        upload_date=data.get("upload_date"),
+        thumbnail=data.get("thumbnail"),
+    )
+
+
+def _extract_with_gallery_dl(url: str) -> VideoResponse:
     """Extract metadata from a photo post using gallery-dl's Python API."""
     if not _gallery_dl_available:  # pragma: no cover
         raise HTTPException(status_code=501, detail="gallery-dl is not installed")
@@ -208,48 +206,39 @@ def _extract_with_gallery_dl(url: str) -> dict:
 
     try:
         with redirect_stdout(stdout_sink), redirect_stderr(stderr_sink):
-            gdl_job = _GalleryDataJob(url)
-            gdl_job.run()
+            job = _GalleryDataJob(url)
+            job.run()
     except Exception as exc:
         raise HTTPException(
             status_code=400,
             detail=f"gallery-dl error: {exc}",
         )
 
-    if not gdl_job.items:
+    if not job.items:
         raise HTTPException(status_code=404, detail="No metadata returned by gallery-dl")
 
-    data = gdl_job.items[0]
-
+    data = job.items[0]
     content = data.get("content") or ""
     title = data.get("title") or ""
     description = data.get("description") or ""
     # TikTok uses "desc"; Instagram uses "description" or "caption".
     caption = data.get("caption") or content or description or data.get("desc") or title or ""
 
-    return {
+    return _video_response({
         "title": title,
         "description": caption,
         "uploader": _extract_uploader(data),
         "upload_date": _format_date(data.get("date") or data.get("createTime") or data.get("upload_date")),
         "thumbnail": _extract_thumbnail(data),
-    }
+    })
 
 
 @app.post("/description", response_model=VideoResponse)
-async def get_description(request: Request):
-    raw = await request.body()
-    url = _parse_body(raw)
+def get_description(request: DescriptionRequest):
+    url = request.url
 
     if PHOTO_PATTERN.match(url):
-        info = _extract_with_gallery_dl(url)
-        return VideoResponse(
-            title=info.get("title", ""),
-            description=info.get("description", ""),
-            uploader=info.get("uploader", ""),
-            upload_date=info.get("upload_date"),
-            thumbnail=info.get("thumbnail"),
-        )
+        return _extract_with_gallery_dl(url)
 
     ydl_opts = _build_ydl_opts()
     try:
@@ -258,13 +247,8 @@ async def get_description(request: Request):
     except yt_dlp.utils.DownloadError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return VideoResponse(
-        title=info.get("title", ""),
-        description=info.get("description", ""),
-        uploader=info.get("uploader", ""),
-        upload_date=info.get("upload_date"),
-        thumbnail=info.get("thumbnail"),
-    )
+    print(f"[metadata] data: {info!r}", flush=True)
+    return _video_response(info)
 
 
 @app.get("/health")

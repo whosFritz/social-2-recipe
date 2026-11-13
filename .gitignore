@@ -4,3 +4,4 @@ n8n-yt-to-mealie.json
 cookies.txt
 .idea
 .DS_Store
+app/__pycache__

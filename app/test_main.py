@@ -5,28 +5,26 @@ import pytest
 import yt_dlp
 from fastapi.testclient import TestClient
 
-from main import app, _parse_body, PHOTO_PATTERN
+from main import PHOTO_PATTERN, app
 
 
 client = TestClient(app)
 
 
-class TestParseBody:
-    def test_valid_json(self):
-        assert _parse_body(b'{"url":"https://x.com/v"}') == "https://x.com/v"
+class TestDescriptionValidation:
+    def test_missing_url_returns_422(self):
+        assert client.post("/description", json={"foo": "bar"}).status_code == 422
 
-    def test_invalid_escape_is_repaired(self):
-        raw = rb'{"url":"https://x.com/path\_1"}'
-        assert _parse_body(raw) == "https://x.com/path_1"
+    def test_invalid_json_returns_422(self):
+        response = client.post(
+            "/description",
+            content=b"not json",
+            headers={"content-type": "application/json"},
+        )
+        assert response.status_code == 422
 
-    def test_missing_url_field(self):
-        with pytest.raises(Exception) as exc:
-            _parse_body(b'{"foo":"bar"}')
-        assert "Missing 'url' field" in str(exc.value)
-
-    def test_invalid_json(self):
-        with pytest.raises(Exception):
-            _parse_body(b"not json")
+    def test_empty_url_returns_422(self):
+        assert client.post("/description", json={"url": ""}).status_code == 422
 
 
 class TestPhotoPattern:

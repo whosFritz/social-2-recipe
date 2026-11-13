@@ -1,0 +1,675 @@
+{
+  "name": "Social Media to Mealie",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yt-recipe",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "481d2532-e591-48a2-8241-9dccadc18e67",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1872,
+        704
+      ],
+      "webhookId": "a1b2c3d4-1111-1111-1111-000000000099"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8089/description",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $('Webhook').item.json.body.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9d1ae433-7cb2-4c77-930f-381788cd1230",
+      "name": "Get YT Description",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1200,
+        528
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:9925/api/recipes/create/html-or-json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Webhook').item.json.headers.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: $json.text, url: $('Webhook').item.json.body.url, includeTags: true, includeCategories: true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "9382b4fc-4d2d-470f-a6b7-429165e7299a",
+      "name": "Create Recipe from HTML/JSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -464,
+        352
+      ],
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3e8e3776-2f7f-4dd2-9f22-9b6837e3ebd5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        32,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Get YT Description').item.json.thumbnail }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "63c9a839-0537-4848-947e-dfcaa8e9c42a",
+      "name": "Download Thumbnail",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -192,
+        208
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'http://localhost:9925/api/recipes/' + $('Create Recipe from HTML/JSON').item.json.data + '/image' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Webhook').item.json.headers.authorization }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "extension",
+              "value": "jpg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8b00939d-54cf-4fc8-9cd2-6a2ff3bd30a6",
+      "name": "Upload Recipe Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        32,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9925/api/users/self",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.headers.authorization }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "c78c2add-e8a9-4bf1-93bf-52c79eb63c97",
+      "name": "Check if user is valid mealie user",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1648,
+        704
+      ],
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "40b82ea7-d19d-4a87-9a62-dc1d1d655b36",
+              "leftValue": "={{ $('Webhook').item.json.body.url }}",
+              "rightValue": "tiktok",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "6dcb311a-63fb-4750-af2b-84081550361c",
+              "leftValue": "={{ $('Webhook').item.json.body.url }}",
+              "rightValue": "instagram",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "2741e25d-758b-4c92-8642-f05954538921",
+              "leftValue": "={{ $('Webhook').item.json.body.url }}",
+              "rightValue": "youtube",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "35386fc0-8e03-4487-bd46-d7f081aef1ed",
+              "leftValue": "={{ $('Webhook').item.json.body.url }}",
+              "rightValue": "facebook",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1424,
+        624
+      ],
+      "id": "dec20e2f-ec65-45b0-b265-5436300b3c6d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:9925/api/recipes/create/url",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Webhook').item.json.headers.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $('Webhook').item.json.body.url,  includeTags: true, includeCategories: true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "5f0732b1-2759-4143-850a-42a48c88c33f",
+      "name": "Create Recipe from URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -416,
+        912
+      ],
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst uri = \"https://mealie.whosfritz.de/g/home/r/\" + $input.first().json.data\nreturn [{\n  \"code\": 200,\n  \"link\" : uri,\n  \"title\" : $('Get YT Description').first().json.title\n}]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        400
+      ],
+      "id": "cbdcf923-3321-481c-9db9-0419f7c3b511",
+      "name": "Create Success Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\"code\" : $input.first().json.error.status}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        736
+      ],
+      "id": "b17583f0-2901-4147-964a-cb30381ad113",
+      "name": "Create Error Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst uri = \"https://mealie.whosfritz.de/g/home/r/\" + $input.first().json.data\nreturn [{\n  \"code\": 200,\n  \"link\" : uri\n}]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        1024
+      ],
+      "id": "e23f9b28-b375-4bd8-851f-2dc8af2fbcf4",
+      "name": "Create Success Response 2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1664d6ad-96bc-4fd9-9445-a2cf5051fa30",
+              "leftValue": "={{ $json.code }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        736
+      ],
+      "id": "61344469-10df-4954-aea8-7ecd024b9fa7",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "errorMessage": "=An error occured. Status code: {{ $('Respond to Webhook').item.json.code || 500 }}."
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        704,
+        752
+      ],
+      "id": "29879934-9d9d-4589-9477-aec92d020c2a",
+      "name": "Stop and Error"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=**Mealie Rezeptverarbeitung schlug fehl:**\n**Code:** {{ $('Respond to Webhook').isExecuted ? $('Respond to Webhook').item.json.code : 500 }}\n**Rezept Name (nach AI):** {{ $('Extract Recipe JSON').isExecuted && $('Extract Recipe JSON').item.json.recipeText ? $('Extract Recipe JSON').item.json.recipeText.parseJson().name : \"kein Rezeptname vorhanden\" }}\n**Rezept-Url:** {{ $('Webhook').isExecuted ? $('Webhook').item.json.body.url : \"keine Url vorhanden\" }}\n**Grund:** {{ $('Get YT Description').isExecuted && $('Get YT Description').item.json.error ? $('Get YT Description').item.json.error.message : ($('Create Recipe from HTML/JSON').isExecuted && $('Create Recipe from HTML/JSON').item.json.error ? $('Create Recipe from HTML/JSON').item.json.error.message : \"kein Grund da\") }}",
+        "options": {
+          "flags": [
+            "SUPPRESS_EMBEDS"
+          ]
+        },
+        "embeds": {
+          "values": []
+        },
+        "files": {
+          "values": []
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        480,
+        752
+      ],
+      "id": "e1089211-ecdd-4d86-9ad9-70573699d04b",
+      "name": "Discord",
+      "webhookId": "ce103963-1639-46a6-9eaf-1420e6cb11c3",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "uC76jDAsz9VRSCX6",
+          "name": "Discord Webhook account social-2-mealie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extrahiere das Rezept aus dieser Video-Beschreibung. Übersetze alles auf Deutsch. Benutze ausschließlich Informationen, die im Text enthalten sind, für das Schema. Konvertiere US-Einheiten in metrische Einheiten und runde dabei sinnvoll. Formatiere anschließend alles in dieses Schema: https://schema.org/Recipe. Gib das Ergebnis ohne Zeilenumbrüche zurück.\nFür das Feld recipeCategory musst du zwingend genau eine Kategorie auswählen. Erlaubt sind ausschließlich: \"Frühstück\", \"Hauptgericht\", \"Kuchen\" oder \"Snack\".\n\nFür das Feld keywords müssen EXAKT 2 Keywords vergeben werden:\n\n1. Der angegebene Username: {{$('Check if user is valid mealie user').item.json.data.parseJson().username.toLowerCase()}}\n2. Die gewählte recipeCategory (exakt gleicher Wert, z.B. \"Hauptgericht\").\nVerwende keine weiteren Keywords.\n\nFür das Feld description im Schema schreibe eine passende, ansprechende Beschreibung basierend auf dem Originaltext. Die Beschreibung darf keine Anleitung oder Schritt-für-Schritt-Erklärung sein.\n\nUsername: {{$('Check if user is valid mealie user').item.json.data.parseJson().username}}\n\nTitle: {{$('Get YT Description').item.json.title}}\n\nBeschreibung: {{ $('Get YT Description').item.json.description }}",
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -864,
+        320
+      ],
+      "id": "fe74a208-0e67-422f-84c4-31ec50f45993",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-6-luna",
+          "mode": "list",
+          "cachedResultName": "gpt-6-luna"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -864,
+        496
+      ],
+      "id": "4bd82a5b-4a22-4e4e-b962-6f334d0bd215",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "O9qDDsAmq2QZ1uiB",
+          "name": "litellm"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check if user is valid mealie user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get YT Description": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Recipe from HTML/JSON": {
+      "main": [
+        [
+          {
+            "node": "Download Thumbnail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Thumbnail": {
+      "main": [
+        [
+          {
+            "node": "Upload Recipe Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if user is valid mealie user": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Get YT Description",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Recipe from URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Recipe from URL": {
+      "main": [
+        [
+          {
+            "node": "Create Success Response 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Success Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Error Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Success Response 2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Create Recipe from HTML/JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 120
+  },
+  "versionId": "a33c95dc-6ff9-4e7f-ab8a-145e4ab3e7d3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3daa163b46084a9870d24cab9168d49e52f6f81d3ad397ce35654382d47b6381"
+  },
+  "nodeGroups": [],
+  "id": "efrhrMnH11l7D02l",
+  "tags": []
+}

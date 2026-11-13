@@ -33,23 +33,56 @@ docker compose up -d
 
 ## n8n Workflow
 
-Import `public-n8n-workflow-with-example-values.json` into n8n and configure the following placeholders:
-
-| Placeholder | Description |
-|---|---|
-| `<your-ai-api-url>` | OpenAI-compatible API endpoint (e.g. `https://api.openai.com/v1/chat/completions`) |
-| `<your-ai-api-key>` | API key for the AI service |
-| `<your-mealie-api-token>` | Mealie long-lived API token (Settings → API Tokens) |
-| `<your-mealie-domain>` | Your Mealie instance domain (e.g. `mealie.example.com`) |
-| `<your-webhook-id>` | Generated automatically by n8n after import |
-| `<your-instance-id>` | Generated automatically by n8n |
+Import `Public-Social Media to Mealie.json` into n8n and configure the following placeholders:
 
 The workflow exposes a webhook (POST). Send a JSON body with a `url` field pointing to a YouTube or Instagram video.
 
-## Example Request
-
-```bash
-curl -X POST http://localhost:8089/description \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=... or https://www.instagram.com/...."}'
+```mermaid
+graph TD
+    A["📱 Social Media URL<br/>(YouTube, TikTok, Instagram, Facebook)"] 
+    
+    B["🔐 Validate User<br/>Mealie Authentication"]
+    
+    C{"Social Media<br/>or Direct URL?"}
+    
+    D["🎬 Extract Video Data<br/>Title, Description, Thumbnail"]
+    
+    E["🤖 AI Processing<br/>GPT-6-Luna"]
+    
+    F["🌐 Translate to German<br/>Extract Recipe<br/>Normalize Units<br/>Apply Schema"]
+    
+    G["📝 Create Recipe<br/>in Mealie"]
+    
+    H["🖼️ Download & Upload<br/>Thumbnail Image"]
+    
+    I["✅ Success<br/>Return Recipe Link"]
+    
+    J["❌ Error<br/>Notify Discord"]
+    
+    K["🔄 Direct Recipe Creation<br/>Mealie API"]
+    
+    A --> B
+    B --> C
+    C -->|Social Media| D
+    C -->|Direct URL| K
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    K --> I
+    G -.->|Error| J
+    D -.->|Error| J
+    
+    style A fill:#FF6B6B,color:#fff,stroke:#333,stroke-width:3px
+    style B fill:#9C27B0,color:#fff,stroke:#333,stroke-width:2px
+    style C fill:#9C27B0,color:#fff,stroke:#333,stroke-width:2px
+    style D fill:#2196F3,color:#fff,stroke:#333,stroke-width:2px
+    style E fill:#2196F3,color:#fff,stroke:#333,stroke-width:2px
+    style F fill:#2196F3,color:#fff,stroke:#333,stroke-width:2px
+    style G fill:#FF9800,color:#fff,stroke:#333,stroke-width:2px
+    style H fill:#FF9800,color:#fff,stroke:#333,stroke-width:2px
+    style I fill:#4CAF50,color:#fff,stroke:#333,stroke-width:3px
+    style J fill:#f44336,color:#fff,stroke:#333,stroke-width:2px
+    style K fill:#FF9800,color:#fff,stroke:#333,stroke-width:2px
 ```
